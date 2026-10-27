@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to STOUT PLUS",
+        "description": "Enter the network address of your STOUT PLUS boiler.",
+        "data": {
+          "host": "Boiler IP address or hostname",
+          "port": "HTTP port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the boiler. Check the address, port, and network connection."
+    },
+    "abort": {
+      "already_configured": "This boiler is already configured."
+    }
+  }
+}
