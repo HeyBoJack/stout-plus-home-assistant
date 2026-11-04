@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from typing import Any
 
 import aiohttp
+
+from .const import MODE_NAMES
 
 
 class StoutPlusApi:
@@ -53,7 +56,7 @@ class StoutPlusApi:
         return await self._get_json("other_params")
 
     async def async_set_mode(self, mode: int) -> None:
-        if mode not in range(5):
+        if mode not in MODE_NAMES:
             raise ValueError(f"Unsupported boiler mode: {mode}")
 
         url = f"{self._base_url}/switch_mode"
@@ -74,8 +77,9 @@ class StoutPlusApi:
 
 
     async def async_set_room_temperature(self, temperature: float) -> None:
-        if not 0 <= temperature <= 35:
+        if not math.isfinite(temperature) or not 0 <= temperature <= 35:
             raise ValueError("Room temperature must be between 0 and 35 °C")
+
 
         url = f"{self._base_url}/change_rmtrg"
 
@@ -94,6 +98,9 @@ class StoutPlusApi:
             ) from err
 
     async def async_set_flow_temperature(self, temperature: float) -> None:
+        if not math.isfinite(temperature) or not 8 <= temperature <= 85:
+            raise ValueError("Flow temperature must be between 8 and 85 °C")
+
         url = f"{self._base_url}/change_crrtrg"
 
         try:

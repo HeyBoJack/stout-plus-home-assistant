@@ -102,7 +102,7 @@ class StoutPlusClimate(StoutPlusEntityMixin, CoordinatorEntity, ClimateEntity):
 
         try:
             await self._api.async_set_room_temperature(temperature)
-        except StoutPlusApiError as err:
+        except (StoutPlusApiError, ValueError) as err:
             raise HomeAssistantError(
                 f"Failed to set room temperature: {err}"
             ) from err
@@ -118,7 +118,7 @@ class StoutPlusClimate(StoutPlusEntityMixin, CoordinatorEntity, ClimateEntity):
         if self.hvac_mode != HVACMode.HEAT:
             try:
                 await self._api.async_set_mode(2)
-            except StoutPlusApiError as err:
+            except (StoutPlusApiError, ValueError) as err:
                 raise HomeAssistantError(
                     f"Failed to enable Room mode: {err}"
                 ) from err
