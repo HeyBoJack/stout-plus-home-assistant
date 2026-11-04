@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import DOMAIN, MODE_NAMES
+from .entity import StoutPlusEntityMixin
 
 
 SENSORS = [
@@ -44,7 +45,7 @@ async def async_setup_entry(
     )
 
 
-class StoutPlusSensor(CoordinatorEntity, SensorEntity):
+class StoutPlusSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(
@@ -64,6 +65,7 @@ class StoutPlusSensor(CoordinatorEntity, SensorEntity):
         self._field = field
         self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._stout_suggested_object_id = f"stout_plus_{key}"
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit
         self._attr_suggested_display_precision = 1
@@ -95,7 +97,7 @@ class StoutPlusSensor(CoordinatorEntity, SensorEntity):
             return None
 
 
-class StoutPlusModeSensor(CoordinatorEntity, SensorEntity):
+class StoutPlusModeSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Operating mode"
     _attr_icon = "mdi:heat-wave"
@@ -103,6 +105,7 @@ class StoutPlusModeSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, entry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_operating_mode"
+        self._stout_suggested_object_id = "stout_plus_operating_mode"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
@@ -119,7 +122,7 @@ class StoutPlusModeSensor(CoordinatorEntity, SensorEntity):
             return "Unknown"
 
 
-class StoutPlusErrorSensor(CoordinatorEntity, SensorEntity):
+class StoutPlusErrorSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Boiler error"
     _attr_icon = "mdi:alert-circle-outline"
@@ -127,6 +130,7 @@ class StoutPlusErrorSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, entry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_boiler_error"
+        self._stout_suggested_object_id = "stout_plus_boiler_error"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
@@ -141,7 +145,7 @@ class StoutPlusErrorSensor(CoordinatorEntity, SensorEntity):
         return re.sub(r"<[^>]+>", "", str(value)).strip() or "Unknown"
 
 
-class StoutPlusPumpSensor(CoordinatorEntity, SensorEntity):
+class StoutPlusPumpSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Pump status"
     _attr_icon = "mdi:pump"
@@ -149,6 +153,7 @@ class StoutPlusPumpSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, entry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_pump_status"
+        self._stout_suggested_object_id = "stout_plus_pump_status"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",

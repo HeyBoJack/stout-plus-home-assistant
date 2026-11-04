@@ -10,6 +10,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, MODE_NAMES
+from .entity import StoutPlusEntityMixin
 from .api import StoutPlusApiError
 
 
@@ -24,7 +25,7 @@ async def async_setup_entry(
     )
 
 
-class StoutPlusModeSelect(CoordinatorEntity, SelectEntity):
+class StoutPlusModeSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
     _attr_name = "Operating mode"
     _attr_icon = "mdi:hvac"
@@ -34,6 +35,7 @@ class StoutPlusModeSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_operating_mode"
+        self._stout_suggested_object_id = "stout_plus_operating_mode"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
@@ -86,7 +88,7 @@ class StoutPlusModeSelect(CoordinatorEntity, SelectEntity):
             self.coordinator.async_update_listeners()
 
 
-class StoutPlusAlgorithmSelect(CoordinatorEntity, SelectEntity):
+class StoutPlusAlgorithmSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
     _attr_options = ["Slow", "Fast"]
 
@@ -104,6 +106,7 @@ class StoutPlusAlgorithmSelect(CoordinatorEntity, SelectEntity):
         self._is_heating = is_heating
         suffix = "heating_algorithm" if is_heating else "dhw_algorithm"
         self._attr_unique_id = f"{entry.entry_id}_{suffix}"
+        self._stout_suggested_object_id = f"stout_plus_{suffix}"
         self._attr_name = "Algorithm: heating" if is_heating else "Algorithm: DHW"
         self._attr_entity_category = EntityCategory.CONFIG
         self._attr_icon = "mdi:fire" if is_heating else "mdi:water-boiler"
@@ -141,7 +144,7 @@ class StoutPlusAlgorithmSelect(CoordinatorEntity, SelectEntity):
         await self.coordinator.async_request_refresh()
 
 
-class StoutPlusPumpLagSelect(CoordinatorEntity, SelectEntity):
+class StoutPlusPumpLagSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
     _attr_name = "Pump overrun"
     _attr_entity_category = EntityCategory.CONFIG
@@ -157,6 +160,7 @@ class StoutPlusPumpLagSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_pump_lag"
+        self._stout_suggested_object_id = "stout_plus_pump_lag"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",

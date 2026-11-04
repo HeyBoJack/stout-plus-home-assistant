@@ -9,7 +9,7 @@ from .api import StoutPlusApi
 from .const import DOMAIN
 from .coordinator import StoutPlusCoordinator
 
-PLATFORMS = ["sensor", "select", "number", "time", "switch"]
+PLATFORMS = ["sensor", "select", "number", "time", "switch", "climate"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

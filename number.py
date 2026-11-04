@@ -10,6 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .entity import StoutPlusEntityMixin
 
 
 async def async_setup_entry(
@@ -23,7 +24,7 @@ async def async_setup_entry(
     )
 
 
-class StoutPlusMaxFlowTemperatureNumber(CoordinatorEntity, NumberEntity):
+class StoutPlusMaxFlowTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
     _attr_has_entity_name = True
     _attr_name = "Maximum flow temperature"
     _attr_entity_category = EntityCategory.CONFIG
@@ -38,6 +39,7 @@ class StoutPlusMaxFlowTemperatureNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_max_flow_temperature"
+        self._stout_suggested_object_id = "stout_plus_max_flow_temperature"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
@@ -59,7 +61,7 @@ class StoutPlusMaxFlowTemperatureNumber(CoordinatorEntity, NumberEntity):
         await self._api.async_set_max_flow_temperature(value)
         await self.coordinator.async_request_refresh()
 
-class StoutPlusTemperatureAccuracyNumber(CoordinatorEntity, NumberEntity):
+class StoutPlusTemperatureAccuracyNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
     _attr_has_entity_name = True
     _attr_name = "Flow temperature accuracy"
     _attr_entity_category = EntityCategory.CONFIG
@@ -73,6 +75,7 @@ class StoutPlusTemperatureAccuracyNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_temperature_accuracy"
+        self._stout_suggested_object_id = "stout_plus_temperature_accuracy"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
@@ -94,7 +97,7 @@ class StoutPlusTemperatureAccuracyNumber(CoordinatorEntity, NumberEntity):
         await self._api.async_set_temperature_accuracy(value)
         await self.coordinator.async_request_refresh()
 
-class StoutPlusFlowTemperatureNumber(CoordinatorEntity, NumberEntity):
+class StoutPlusFlowTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
     _attr_has_entity_name = True
     _attr_name = "Flow temperature target"
     _attr_icon = "mdi:thermometer-chevron-up"
@@ -107,6 +110,7 @@ class StoutPlusFlowTemperatureNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_flow_temperature_target"
+        self._stout_suggested_object_id = "stout_plus_flow_temperature_target"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
@@ -141,7 +145,7 @@ class StoutPlusFlowTemperatureNumber(CoordinatorEntity, NumberEntity):
         await self.coordinator.async_request_refresh()
 
 
-class StoutPlusRoomTemperatureNumber(CoordinatorEntity, NumberEntity):
+class StoutPlusRoomTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
     _attr_has_entity_name = True
     _attr_name = "Room temperature target"
     _attr_icon = "mdi:thermostat"
@@ -154,6 +158,7 @@ class StoutPlusRoomTemperatureNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_room_temperature_target"
+        self._stout_suggested_object_id = "stout_plus_room_temperature_target"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
@@ -188,7 +193,7 @@ class StoutPlusRoomTemperatureNumber(CoordinatorEntity, NumberEntity):
         await self.coordinator.async_request_refresh()
 
 
-class StoutPlusPowerNumber(CoordinatorEntity, NumberEntity):
+class StoutPlusPowerNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
     _attr_has_entity_name = True
     _attr_native_min_value = 2
     _attr_native_max_value = 18
@@ -202,6 +207,7 @@ class StoutPlusPowerNumber(CoordinatorEntity, NumberEntity):
         self._is_day = is_day
         suffix = "day" if is_day else "night"
         self._attr_unique_id = f"{entry.entry_id}_{suffix}_power"
+        self._stout_suggested_object_id = f"stout_plus_{suffix}_power"
         self._attr_name = "Power: Day" if is_day else "Power: Night"
         self._attr_icon = "mdi:flash"
         self._attr_device_info = DeviceInfo(

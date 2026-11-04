@@ -4,6 +4,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .entity import StoutPlusEntityMixin
 
 
 async def async_setup_entry(
@@ -17,7 +18,7 @@ async def async_setup_entry(
     async_add_entities([StoutPlusRelaySoundSwitch(coordinator, api, entry)])
 
 
-class StoutPlusRelaySoundSwitch(CoordinatorEntity, SwitchEntity):
+class StoutPlusRelaySoundSwitch(StoutPlusEntityMixin, CoordinatorEntity, SwitchEntity):
     _attr_has_entity_name = True
     _attr_name = "Relay sound signal"
     _attr_icon = "mdi:volume-high"
@@ -27,6 +28,7 @@ class StoutPlusRelaySoundSwitch(CoordinatorEntity, SwitchEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_relay_sound"
+        self._stout_suggested_object_id = "stout_plus_relay_sound"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",
