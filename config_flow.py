@@ -45,8 +45,12 @@ class StoutPlusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_HOST, default=DEFAULT_HOST): str,
-                vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.Coerce(int),
+                vol.Required(CONF_HOST, default=DEFAULT_HOST): vol.All(
+                    str, vol.Strip, vol.Length(min=1)
+                ),
+                vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=65535)
+                ),
             }
         )
 

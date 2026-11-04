@@ -1,16 +1,51 @@
 from __future__ import annotations
 
+import math
+from collections.abc import Awaitable
+from typing import Any
+
 from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import StoutPlusApiError
 from .const import DOMAIN
 from .entity import StoutPlusEntityMixin
+
+
+async def _async_api_call(call: Awaitable[None]) -> None:
+    try:
+        await call
+    except (StoutPlusApiError, ValueError) as err:
+        raise HomeAssistantError(str(err)) from err
+
+
+def _power_kw(other: dict[str, Any], key: str) -> int:
+    try:
+        levels = float(other[key])
+        full_power = float(other["FullPwr_str"])
+        total_levels = float(other["PowerLevels_str"])
+
+        if (
+            not math.isfinite(levels)
+            or not math.isfinite(full_power)
+            or not math.isfinite(total_levels)
+            or full_power <= 0
+            or total_levels <= 0
+        ):
+            raise ValueError("Invalid boiler power parameters")
+
+        return round(levels * full_power / total_levels)
+    except (KeyError, TypeError, ValueError, OverflowError, ZeroDivisionError) as err:
+        raise HomeAssistantError(
+            f"Invalid boiler power schedule data: {err}"
+        ) from err
 
 
 async def async_setup_entry(
@@ -20,7 +55,14 @@ async def async_setup_entry(
 ) -> None:
     data = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
-        [StoutPlusMaxFlowTemperatureNumber(data["coordinator"], data["api"], entry), StoutPlusTemperatureAccuracyNumber(data["coordinator"], data["api"], entry), StoutPlusFlowTemperatureNumber(data["coordinator"], data["api"], entry), StoutPlusRoomTemperatureNumber(data["coordinator"], data["api"], entry), StoutPlusDayPowerNumber(data["coordinator"], data["api"], entry), StoutPlusNightPowerNumber(data["coordinator"], data["api"], entry)]
+        [
+            StoutPlusMaxFlowTemperatureNumber(data["coordinator"], data["api"], entry),
+            StoutPlusTemperatureAccuracyNumber(data["coordinator"], data["api"], entry),
+            StoutPlusFlowTemperatureNumber(data["coordinator"], data["api"], entry),
+            StoutPlusRoomTemperatureNumber(data["coordinator"], data["api"], entry),
+            StoutPlusDayPowerNumber(data["coordinator"], data["api"], entry),
+            StoutPlusNightPowerNumber(data["coordinator"], data["api"], entry),
+        ]
     )
 
 
@@ -58,7 +100,7 @@ class StoutPlusMaxFlowTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity,
     async def async_set_native_value(self, value: float) -> None:
         if not 20 <= value <= 85:
             raise ValueError("Maximum flow temperature must be between 20 and 85 °C")
-        await self._api.async_set_max_flow_temperature(value)
+        await _async_api_call(self._api.async_set_max_flow_temperature(value))
         await self.coordinator.async_request_refresh()
 
 class StoutPlusTemperatureAccuracyNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
@@ -94,7 +136,7 @@ class StoutPlusTemperatureAccuracyNumber(StoutPlusEntityMixin, CoordinatorEntity
     async def async_set_native_value(self, value: float) -> None:
         if not 0.4 <= value <= 3.0:
             raise ValueError("Temperature accuracy must be between 0.4 and 3.0")
-        await self._api.async_set_temperature_accuracy(value)
+        await _async_api_call(self._api.async_set_temperature_accuracy(value))
         await self.coordinator.async_request_refresh()
 
 class StoutPlusFlowTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
@@ -141,7 +183,7 @@ class StoutPlusFlowTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, Nu
         if not 8 <= value <= 85:
             raise ValueError("Flow temperature must be between 8 and 85 °C")
 
-        await self._api.async_set_flow_temperature(value)
+        await _async_api_call(self._api.async_set_flow_temperature(value))
         await self.coordinator.async_request_refresh()
 
 
@@ -189,7 +231,7 @@ class StoutPlusRoomTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, Nu
         if not 0 <= value <= 35:
             raise ValueError("Room temperature must be between 0 and 35 °C")
 
-        await self._api.async_set_room_temperature(value)
+        await _async_api_call(self._api.async_set_room_temperature(value))
         await self.coordinator.async_request_refresh()
 
 
@@ -227,33 +269,46 @@ class StoutPlusPowerNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity
             ])
             full_power = float(other["FullPwr_str"])
             total_levels = float(other["PowerLevels_str"])
-            if total_levels <= 0:
+            if (
+                not all(math.isfinite(v) for v in (levels, full_power, total_levels))
+                or full_power <= 0
+                or total_levels <= 0
+            ):
                 return None
             return round(levels * full_power / total_levels, 1)
-        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        except (KeyError, TypeError, ValueError, ZeroDivisionError, OverflowError):
             return None
 
     async def async_set_native_value(self, value: float) -> None:
-        if not 2 <= value <= 18 or value % 2:
-            raise ValueError("Power must be 2–18 kW in steps of 2 kW")
+        if not math.isfinite(value) or not 2 <= value <= 18 or value % 2:
+            raise HomeAssistantError("Power must be 2–18 kW in steps of 2 kW")
 
-        other = self.coordinator.data["other"]
+        try:
+            other = self.coordinator.data["other"]
+            day_power = (
+                int(value)
+                if self._is_day
+                else _power_kw(other, "amountActiveLevelsPerDay")
+            )
+            night_power = (
+                int(value)
+                if not self._is_day
+                else _power_kw(other, "amountActiveLevelsAtNight")
+            )
 
-        def power_kw(key: str) -> int:
-            levels = float(other[key])
-            full_power = float(other["FullPwr_str"])
-            total_levels = float(other["PowerLevels_str"])
-            return round(levels * full_power / total_levels)
+            await _async_api_call(
+                self._api.async_set_power_schedule(
+                    day_power=day_power,
+                    night_power=night_power,
+                    day_time=str(other["dayTime"]),
+                    night_time=str(other["nightTime"]),
+                )
+            )
+        except (KeyError, TypeError, ValueError, OverflowError) as err:
+            raise HomeAssistantError(
+                f"Invalid boiler power schedule data: {err}"
+            ) from err
 
-        day_power = int(value) if self._is_day else power_kw("amountActiveLevelsPerDay")
-        night_power = int(value) if not self._is_day else power_kw("amountActiveLevelsAtNight")
-
-        await self._api.async_set_power_schedule(
-            day_levels=day_power,
-            night_levels=night_power,
-            day_time=str(other["dayTime"]),
-            night_time=str(other["nightTime"]),
-        )
         await self.coordinator.async_request_refresh()
 
 

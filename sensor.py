@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import math
+import re
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -86,14 +89,14 @@ class StoutPlusSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity):
         if value is None or value == "":
             return None
         if self._field == "ActPress":
-            import re
             match = re.search(r"[-+]?[0-9]*\.?[0-9]+", str(value))
             value = match.group(0) if match else None
         if self._field == "CurrPwr_str":
             value = str(value).replace("кВт", "").strip()
         try:
-            return float(value)
-        except (TypeError, ValueError):
+            result = float(value)
+            return result if math.isfinite(result) else None
+        except (TypeError, ValueError, OverflowError):
             return None
 
 
@@ -141,7 +144,6 @@ class StoutPlusErrorSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity
     @property
     def native_value(self):
         value = self.coordinator.data["main"].get("Err_str", "")
-        import re
         return re.sub(r"<[^>]+>", "", str(value)).strip() or "Unknown"
 
 

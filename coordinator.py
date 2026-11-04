@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import timedelta
+import asyncio
 import logging
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -56,8 +57,6 @@ class StoutPlusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_fetch_data(
         self,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        import asyncio
-
         main, other = await asyncio.gather(
             self.api.async_get_main_params(),
             self.api.async_get_other_params(),

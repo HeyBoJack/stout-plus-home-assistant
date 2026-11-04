@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import math
 from datetime import time as dt_time
 
 from homeassistant.components.time import TimeEntity
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import StoutPlusApiError
 from .const import DOMAIN
 from .entity import StoutPlusEntityMixin
 
@@ -60,23 +63,46 @@ class StoutPlusScheduleTime(StoutPlusEntityMixin, CoordinatorEntity, TimeEntity)
             return None
 
     async def async_set_value(self, value: dt_time) -> None:
-        other = self.coordinator.data["other"]
+        try:
+            other = self.coordinator.data["other"]
 
-        def power_kw(key: str) -> int:
-            levels = float(other[key])
-            full_power = float(other["FullPwr_str"])
-            total_levels = float(other["PowerLevels_str"])
-            if total_levels <= 0:
-                raise ValueError("Invalid boiler power levels")
-            return round(levels * full_power / total_levels)
+            def power_kw(key: str) -> int:
+                levels = float(other[key])
+                full_power = float(other["FullPwr_str"])
+                total_levels = float(other["PowerLevels_str"])
 
-        day_time = value.strftime("%H:%M") if self._is_day else str(other["dayTime"])
-        night_time = str(other["nightTime"]) if self._is_day else value.strftime("%H:%M")
+                if (
+                    not all(math.isfinite(v) for v in (levels, full_power, total_levels))
+                    or full_power <= 0
+                    or total_levels <= 0
+                ):
+                    raise ValueError("Invalid boiler power parameters")
 
-        await self._api.async_set_power_schedule(
-            day_levels=power_kw("amountActiveLevelsPerDay"),
-            night_levels=power_kw("amountActiveLevelsAtNight"),
-            day_time=day_time,
-            night_time=night_time,
-        )
+                return round(levels * full_power / total_levels)
+
+            day_time = (
+                value.strftime("%H:%M")
+                if self._is_day
+                else str(other["dayTime"])
+            )
+            night_time = (
+                str(other["nightTime"])
+                if self._is_day
+                else value.strftime("%H:%M")
+            )
+
+            await self._api.async_set_power_schedule(
+                day_power=power_kw("amountActiveLevelsPerDay"),
+                night_power=power_kw("amountActiveLevelsAtNight"),
+                day_time=day_time,
+                night_time=night_time,
+            )
+
+        except StoutPlusApiError as err:
+            raise HomeAssistantError(str(err)) from err
+        except (KeyError, TypeError, ValueError, OverflowError) as err:
+            raise HomeAssistantError(
+                f"Invalid boiler power schedule data: {err}"
+            ) from err
+
         await self.coordinator.async_request_refresh()

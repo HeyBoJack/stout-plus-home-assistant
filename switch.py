@@ -1,8 +1,10 @@
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import StoutPlusApiError
 from .const import DOMAIN
 from .entity import StoutPlusEntityMixin
 
@@ -47,7 +49,11 @@ class StoutPlusRelaySoundSwitch(StoutPlusEntityMixin, CoordinatorEntity, SwitchE
             return None
 
     async def _set_state(self, enabled: bool) -> None:
-        await self._api.async_set_relay_sound(enabled)
+        try:
+            await self._api.async_set_relay_sound(enabled)
+        except StoutPlusApiError as err:
+            raise HomeAssistantError(str(err)) from err
+
         await self.coordinator.async_request_refresh()
 
     async def async_turn_on(self, **kwargs) -> None:

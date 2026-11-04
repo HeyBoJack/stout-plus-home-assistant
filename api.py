@@ -134,8 +134,10 @@ class StoutPlusApi:
 
 
     async def async_set_temperature_accuracy(self, accuracy: float) -> None:
-        if not 0.4 <= accuracy <= 3.0:
-            raise ValueError("Heat transfer fluid temperature accuracy must be between 0.4 and 3.0")
+        if not math.isfinite(accuracy) or not 0.4 <= accuracy <= 3.0:
+            raise ValueError(
+                "Heat transfer fluid temperature accuracy must be between 0.4 and 3.0"
+            )
 
         try:
             async with self._session.post(
@@ -152,18 +154,23 @@ class StoutPlusApi:
 
     async def async_set_power_schedule(
         self,
-        day_levels: int,
-        night_levels: int,
+        day_power: int,
+        night_power: int,
         day_time: str,
         night_time: str,
     ) -> None:
-        if not (2 <= day_levels <= 18 and day_levels % 2 == 0) or not (2 <= night_levels <= 18 and night_levels % 2 == 0):
+        if not (
+            2 <= day_power <= 18
+            and day_power % 2 == 0
+            and 2 <= night_power <= 18
+            and night_power % 2 == 0
+        ):
             raise ValueError("Power must be between 2 and 18 kW in steps of 2 kW")
 
         url = f"{self._base_url}/apply_power_day"
         data = {
-            "amountActiveLevelsPerDay": f"{day_levels:.1f} кВт",
-            "amountActiveLevelsAtNight": f"{night_levels:.1f} кВт",
+            "amountActiveLevelsPerDay": f"{day_power:.1f} кВт",
+            "amountActiveLevelsAtNight": f"{night_power:.1f} кВт",
             "dayTime": day_time,
             "nightTime": night_time,
         }
@@ -207,7 +214,7 @@ class StoutPlusApi:
 
 
     async def async_set_max_flow_temperature(self, temperature: float) -> None:
-        if not 20 <= temperature <= 85:
+        if not math.isfinite(temperature) or not 20 <= temperature <= 85:
             raise ValueError("Maximum flow temperature must be between 20 and 85 °C")
 
         try:
