@@ -16,7 +16,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import StoutPlusApiError
 from .const import DOMAIN
-from .entity import StoutPlusEntityMixin
+from .entity import (
+    StoutPlusEntityMixin,
+    get_antilegionella_settings,
+    antilegionella_available,
+)
 
 
 async def _async_api_call(call: Awaitable[None]) -> None:
@@ -62,6 +66,7 @@ async def async_setup_entry(
             StoutPlusRoomTemperatureNumber(data["coordinator"], data["api"], entry),
             StoutPlusDayPowerNumber(data["coordinator"], data["api"], entry),
             StoutPlusNightPowerNumber(data["coordinator"], data["api"], entry),
+            StoutPlusAntilegionellaHourNumber(data["coordinator"], data["api"], entry),
         ]
     )
 
@@ -232,6 +237,70 @@ class StoutPlusRoomTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, Nu
             raise ValueError("Room temperature must be between 0 and 35 °C")
 
         await _async_api_call(self._api.async_set_room_temperature(value))
+        await self.coordinator.async_request_refresh()
+
+
+class StoutPlusAntilegionellaHourNumber(
+    StoutPlusEntityMixin, CoordinatorEntity, NumberEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "Antilegionella start hour"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:clock-outline"
+    _attr_native_min_value = 0
+    _attr_native_max_value = 23
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = "h"
+    _attr_mode = "box"
+
+    def __init__(self, coordinator, api, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_antilegionella_hour"
+        self._stout_suggested_object_id = "stout_plus_antilegionella_hour"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and antilegionella_available(
+            self.coordinator.data.get("other", {})
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        try:
+            _, _, _, hour = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            return float(hour)
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    async def async_set_native_value(self, value: float) -> None:
+        if (
+            not math.isfinite(value)
+            or not value.is_integer()
+            or not 0 <= value <= 23
+        ):
+            raise ValueError(
+                "Antilegionella start hour must be an integer between 0 and 23"
+            )
+
+        try:
+            enabled, temperature, weekday, _ = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            await self._api.async_set_antilegionella(
+                enabled, temperature, weekday, int(value)
+            )
+        except (KeyError, TypeError, StoutPlusApiError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
         await self.coordinator.async_request_refresh()
 
 

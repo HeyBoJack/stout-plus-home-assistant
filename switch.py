@@ -6,7 +6,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import StoutPlusApiError
 from .const import DOMAIN
-from .entity import StoutPlusEntityMixin
+from .entity import (
+    StoutPlusEntityMixin,
+    get_antilegionella_settings,
+    antilegionella_available,
+)
 
 
 async def async_setup_entry(
@@ -17,7 +21,68 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
 
-    async_add_entities([StoutPlusRelaySoundSwitch(coordinator, api, entry)])
+    async_add_entities(
+        [
+            StoutPlusRelaySoundSwitch(coordinator, api, entry),
+            StoutPlusAntilegionellaSwitch(coordinator, api, entry),
+        ]
+    )
+
+
+class StoutPlusAntilegionellaSwitch(
+    StoutPlusEntityMixin, CoordinatorEntity, SwitchEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "Antilegionella"
+    _attr_icon = "mdi:water-thermometer"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator, api, entry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_antilegionella"
+        self._stout_suggested_object_id = "stout_plus_antilegionella"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def is_on(self) -> bool | None:
+        try:
+            enabled, _, _, _ = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            return enabled
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    @property
+    def available(self) -> bool:
+        return super().available and antilegionella_available(
+            self.coordinator.data.get("other", {})
+        )
+
+    async def _set_state(self, enabled: bool) -> None:
+        try:
+            _, temperature, weekday, hour = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            await self._api.async_set_antilegionella(
+                enabled, temperature, weekday, hour
+            )
+        except (KeyError, TypeError, StoutPlusApiError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self._set_state(True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self._set_state(False)
 
 
 class StoutPlusRelaySoundSwitch(StoutPlusEntityMixin, CoordinatorEntity, SwitchEntity):

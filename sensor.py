@@ -44,6 +44,7 @@ async def async_setup_entry(
             StoutPlusModeSensor(coordinator, entry),
             StoutPlusErrorSensor(coordinator, entry),
             StoutPlusPumpSensor(coordinator, entry),
+            StoutPlusAntilegionellaSensor(coordinator, entry),
         ]
     )
 
@@ -129,6 +130,8 @@ class StoutPlusErrorSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity
     _attr_has_entity_name = True
     _attr_name = "Boiler error"
     _attr_icon = "mdi:alert-circle-outline"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["No errors", "Error", "Unknown"]
 
     def __init__(self, coordinator, entry) -> None:
         super().__init__(coordinator)
@@ -144,7 +147,20 @@ class StoutPlusErrorSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity
     @property
     def native_value(self):
         value = self.coordinator.data["main"].get("Err_str", "")
-        return re.sub(r"<[^>]+>", "", str(value)).strip() or "Unknown"
+        message = re.sub(r"<[^>]+>", "", str(value)).strip()
+        if not message:
+            return "Unknown"
+        if message.lower() == "работает без ошибок":
+            return "No errors"
+        return "Error"
+
+    @property
+    def extra_state_attributes(self):
+        value = self.coordinator.data["main"].get("Err_str", "")
+        message = re.sub(r"<[^>]+>", "", str(value)).strip()
+        if message and message.lower() != "работает без ошибок":
+            return {"boiler_message": message}
+        return {}
 
 
 class StoutPlusPumpSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity):
@@ -172,3 +188,34 @@ class StoutPlusPumpSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity)
         if not status & 0x2:
             return "Unavailable"
         return "On" if status & 0x1 else "Off"
+
+class StoutPlusAntilegionellaSensor(
+    StoutPlusEntityMixin, CoordinatorEntity, SensorEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "Antilegionella status"
+    _attr_icon = "mdi:water-thermometer"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["Active", "Inactive", "Unknown"]
+
+    def __init__(self, coordinator, entry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_antilegionella_status"
+        self._stout_suggested_object_id = "stout_plus_antilegionella_status"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def native_value(self):
+        value = self.coordinator.data.get("other", {}).get("Antil_stat_str", "")
+        status = re.sub(r"<[^>]+>", "", str(value)).strip().lower()
+
+        if "не активен" in status:
+            return "Inactive"
+        if "активен" in status:
+            return "Active"
+        return "Unknown"

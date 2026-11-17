@@ -16,5 +16,30 @@
     "abort": {
       "already_configured": "This boiler is already configured."
     }
+  },
+  "entity": {
+    "select": {
+      "pump_overrun": {
+        "name": "Pump overrun",
+        "state": {
+          "continuous": "Continuous",
+          "five_minutes": "5 min",
+          "ten_minutes": "10 min",
+          "fifteen_minutes": "15 min"
+        }
+      },
+      "antilegionella_weekday": {
+        "name": "Antilegionella weekday",
+        "state": {
+          "monday": "Monday",
+          "tuesday": "Tuesday",
+          "wednesday": "Wednesday",
+          "thursday": "Thursday",
+          "friday": "Friday",
+          "saturday": "Saturday",
+          "sunday": "Sunday"
+        }
+      }
+    }
   }
 }

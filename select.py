@@ -9,9 +9,13 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODE_NAMES
-from .entity import StoutPlusEntityMixin
 from .api import StoutPlusApiError
+from .const import DOMAIN, MODE_NAMES
+from .entity import (
+    StoutPlusEntityMixin,
+    get_antilegionella_settings,
+    antilegionella_available,
+)
 
 
 async def async_setup_entry(
@@ -21,7 +25,14 @@ async def async_setup_entry(
 ) -> None:
     data = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
-        [StoutPlusModeSelect(data["coordinator"], data["api"], entry), StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, True), StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, False), StoutPlusPumpLagSelect(data["coordinator"], data["api"], entry)]
+        [
+            StoutPlusModeSelect(data["coordinator"], data["api"], entry),
+            StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, True),
+            StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, False),
+            StoutPlusPumpLagSelect(data["coordinator"], data["api"], entry),
+            StoutPlusAntilegionellaTemperatureSelect(data["coordinator"], data["api"], entry),
+            StoutPlusAntilegionellaWeekdaySelect(data["coordinator"], data["api"], entry),
+        ]
     )
 
 
@@ -144,16 +155,136 @@ class StoutPlusAlgorithmSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEn
         await self.coordinator.async_request_refresh()
 
 
+class StoutPlusAntilegionellaTemperatureSelect(
+    StoutPlusEntityMixin, CoordinatorEntity, SelectEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "Antilegionella temperature"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:thermometer-water"
+    _attr_options = ["60°C", "70°C"]
+
+    def __init__(self, coordinator, api, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_antilegionella_temperature"
+        self._stout_suggested_object_id = "stout_plus_antilegionella_temperature"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and antilegionella_available(
+            self.coordinator.data.get("other", {})
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        try:
+            _, temperature, _, _ = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            return f"{temperature}°C"
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in self._attr_options:
+            raise HomeAssistantError(
+                f"Unsupported antilegionella temperature: {option}"
+            )
+
+        try:
+            enabled, _, weekday, hour = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            await self._api.async_set_antilegionella(
+                enabled, int(option[:-2]), weekday, hour
+            )
+        except (KeyError, TypeError, StoutPlusApiError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+        await self.coordinator.async_request_refresh()
+
+
+class StoutPlusAntilegionellaWeekdaySelect(
+    StoutPlusEntityMixin, CoordinatorEntity, SelectEntity
+):
+    _attr_has_entity_name = True
+    _attr_translation_key = "antilegionella_weekday"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:calendar-week"
+    _attr_options = [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    ]
+
+    def __init__(self, coordinator, api, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_antilegionella_weekday"
+        self._stout_suggested_object_id = "stout_plus_antilegionella_weekday"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and antilegionella_available(
+            self.coordinator.data.get("other", {})
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        try:
+            _, _, weekday, _ = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            return self._attr_options[weekday]
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in self._attr_options:
+            raise HomeAssistantError(
+                f"Unsupported antilegionella weekday: {option}"
+            )
+
+        try:
+            enabled, temperature, _, hour = get_antilegionella_settings(
+                self.coordinator.data.get("other", {})
+            )
+            await self._api.async_set_antilegionella(
+                enabled, temperature, self._attr_options.index(option), hour
+            )
+        except (KeyError, TypeError, StoutPlusApiError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+        await self.coordinator.async_request_refresh()
+
+
 class StoutPlusPumpLagSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
-    _attr_name = "Pump overrun"
+    _attr_translation_key = "pump_overrun"
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:pump"
     _attr_options = [
-        "Постоянная работа",
-        "выбег 5 мин",
-        "выбег 10 мин",
-        "выбег 15 мин",
+        "continuous",
+        "five_minutes",
+        "ten_minutes",
+        "fifteen_minutes",
     ]
 
     def __init__(self, coordinator, api, entry: ConfigEntry) -> None:

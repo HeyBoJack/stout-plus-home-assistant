@@ -190,14 +190,15 @@ class StoutPlusApi:
 
 
     async def async_set_pump_lag(self, option: str) -> None:
-        allowed = (
-            "Постоянная работа",
-            "выбег 5 мин",
-            "выбег 10 мин",
-            "выбег 15 мин",
-        )
-        if option not in allowed:
+        values = {
+            "continuous": "Постоянная работа",
+            "five_minutes": "выбег 5 мин",
+            "ten_minutes": "выбег 10 мин",
+            "fifteen_minutes": "выбег 15 мин",
+        }
+        if option not in values:
             raise ValueError(f"Unsupported pump lag: {option}")
+        option = values[option]
 
         try:
             async with self._session.post(
@@ -253,6 +254,42 @@ class StoutPlusApi:
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise StoutPlusApiError(
                 f"Cannot set {endpoint}: {err}"
+            ) from err
+
+
+    async def async_set_antilegionella(
+        self, enabled: bool, temperature: int, weekday: int, hour: int
+    ) -> None:
+        if temperature not in (60, 70):
+            raise ValueError("Antilegionella temperature must be 60 or 70 °C")
+        if weekday not in range(7):
+            raise ValueError("Antilegionella weekday must be between 0 and 6")
+        if hour not in range(24):
+            raise ValueError("Antilegionella hour must be between 0 and 23")
+
+        weekdays = (
+            "Понедельник", "Вторник", "Среда", "Четверг",
+            "Пятница", "Суббота", "Воскресенье",
+        )
+        data = {
+            "Antil_trn": "Включен" if enabled else "Выключен",
+            "Antil_temp": f"{temperature}°C",
+            "Antil_wday_str": weekdays[weekday],
+            "set_time_legionella": str(hour),
+            "_acuri": "/set_add_data",
+        }
+
+        try:
+            async with self._session.post(
+                f"{self._base_url}/apply_alig_page",
+                data=data,
+                timeout=self._timeout,
+            ) as response:
+                response.raise_for_status()
+                await response.read()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise StoutPlusApiError(
+                f"Cannot set antilegionella: {err}"
             ) from err
 
 
