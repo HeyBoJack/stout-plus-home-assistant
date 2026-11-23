@@ -25,6 +25,7 @@ SENSORS = [
     # Temporarily disabled: duplicates the Flow temperature target control.
     # ("flow_temperature_target", "Flow temperature target", "main", "SetTempCarrier", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("room_temperature", "Room temperature", "main", "TempInRoom", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("outdoor_temperature", "Outdoor temperature", "main", "TempOutAir", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     # Temporarily disabled: duplicates the Room temperature target control.
     # ("room_temperature_target", "Room temperature target", "main", "setTempRoomMode", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("current_power", "Current power", "other", "CurrPwr_str", None, UnitOfPower.KILO_WATT),

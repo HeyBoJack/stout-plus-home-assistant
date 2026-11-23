@@ -27,6 +27,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             StoutPlusModeSelect(data["coordinator"], data["api"], entry),
+            StoutPlusOutdoorTargetSelect(data["coordinator"], data["api"], entry),
             StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, True),
             StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, False),
             StoutPlusPumpLagSelect(data["coordinator"], data["api"], entry),
@@ -271,6 +272,59 @@ class StoutPlusAntilegionellaWeekdaySelect(
             )
         except (KeyError, TypeError, StoutPlusApiError, ValueError) as err:
             raise HomeAssistantError(str(err)) from err
+
+        await self.coordinator.async_request_refresh()
+
+
+class StoutPlusOutdoorTargetSelect(
+    StoutPlusEntityMixin, CoordinatorEntity, SelectEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "Outdoor target"
+    _attr_icon = "mdi:thermometer-chevron-up"
+    _attr_options = ["22", "25", "30", "35", "40", "45", "50", "55", "60"]
+
+    def __init__(self, coordinator, api, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_outdoor_target"
+        self._stout_suggested_object_id = "stout_plus_outdoor_target"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def available(self) -> bool:
+        try:
+            return super().available and int(
+                self.coordinator.data["main"]["setMode"]
+            ) == 3
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    @property
+    def current_option(self) -> str | None:
+        try:
+            index = int(self.coordinator.data["main"]["SetDepNumber"])
+            return self._attr_options[index] if 0 <= index < 9 else None
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in self._attr_options:
+            raise HomeAssistantError(f"Unsupported outdoor target: {option}")
+
+        try:
+            await self._api.async_set_outdoor_target(
+                self._attr_options.index(option)
+            )
+        except (StoutPlusApiError, ValueError) as err:
+            raise HomeAssistantError(
+                f"Failed to change outdoor target: {err}"
+            ) from err
 
         await self.coordinator.async_request_refresh()
 

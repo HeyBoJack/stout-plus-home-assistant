@@ -76,6 +76,23 @@ class StoutPlusApi:
             ) from err
 
 
+    async def async_set_outdoor_target(self, index: int) -> None:
+        if index not in range(9):
+            raise ValueError("Unsupported outdoor target index")
+
+        try:
+            async with self._session.post(
+                f"{self._base_url}/change_outtrg",
+                data=f"[{index}]",
+                timeout=self._timeout,
+            ) as response:
+                response.raise_for_status()
+                await response.read()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise StoutPlusApiError(
+                f"Cannot set outdoor target: {err}"
+            ) from err
+
     async def async_set_room_temperature(self, temperature: float) -> None:
         if not math.isfinite(temperature) or not 0 <= temperature <= 35:
             raise ValueError("Room temperature must be between 0 and 35 °C")
