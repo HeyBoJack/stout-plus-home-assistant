@@ -22,6 +22,7 @@ from .entity import StoutPlusEntityMixin
 
 SENSORS = [
     ("flow_temperature", "Flow temperature", "main", "ActValTempCarrier", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    ("dhw_temperature", "DHW temperature", "main", "temperatureOfDHW", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     # Temporarily disabled: duplicates the Flow temperature target control.
     # ("flow_temperature_target", "Flow temperature target", "main", "SetTempCarrier", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
     ("room_temperature", "Room temperature", "main", "TempInRoom", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),

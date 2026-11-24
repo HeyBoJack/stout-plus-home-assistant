@@ -20,6 +20,7 @@ from .entity import (
     StoutPlusEntityMixin,
     get_antilegionella_settings,
     antilegionella_available,
+    dhw_settings_available,
 )
 
 
@@ -63,6 +64,7 @@ async def async_setup_entry(
             StoutPlusMaxFlowTemperatureNumber(data["coordinator"], data["api"], entry),
             StoutPlusTemperatureAccuracyNumber(data["coordinator"], data["api"], entry),
             StoutPlusFlowTemperatureNumber(data["coordinator"], data["api"], entry),
+            StoutPlusDhwTemperatureNumber(data["coordinator"], data["api"], entry),
             StoutPlusRoomTemperatureNumber(data["coordinator"], data["api"], entry),
             StoutPlusDayPowerNumber(data["coordinator"], data["api"], entry),
             StoutPlusNightPowerNumber(data["coordinator"], data["api"], entry),
@@ -191,6 +193,49 @@ class StoutPlusFlowTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, Nu
         await _async_api_call(self._api.async_set_flow_temperature(value))
         await self.coordinator.async_request_refresh()
 
+
+class StoutPlusDhwTemperatureNumber(
+    StoutPlusEntityMixin, CoordinatorEntity, NumberEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "DHW temperature target"
+    _attr_icon = "mdi:thermometer-water"
+    _attr_native_min_value = 40
+    _attr_native_max_value = 75
+    _attr_native_step = 0.1
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+
+    def __init__(self, coordinator, api, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_dhw_temperature_target"
+        self._stout_suggested_object_id = "stout_plus_dhw_temperature_target"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and dhw_settings_available(
+            self.coordinator.data.get("main", {})
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        value = self.coordinator.data.get("main", {}).get("settedTemperatureOfDHW")
+        try:
+            return float(value) if value not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    async def async_set_native_value(self, value: float) -> None:
+        if not 40 <= value <= 75:
+            raise ValueError("DHW temperature must be between 40 and 75 °C")
+        await _async_api_call(self._api.async_set_dhw_temperature(value))
+        await self.coordinator.async_request_refresh()
 
 class StoutPlusRoomTemperatureNumber(StoutPlusEntityMixin, CoordinatorEntity, NumberEntity):
     _attr_has_entity_name = True

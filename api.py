@@ -274,6 +274,33 @@ class StoutPlusApi:
             ) from err
 
 
+    async def async_set_dhw_mode(self, enabled: bool) -> None:
+        await self._async_set_dhw_value("switch_dhw", 1 if enabled else 0)
+
+    async def async_set_dhw_temperature(self, temperature: float) -> None:
+        if not math.isfinite(temperature) or not 40 <= temperature <= 75:
+            raise ValueError("DHW temperature must be between 40 and 75 °C")
+        await self._async_set_dhw_value("change_dhwtrg", round(temperature, 1))
+
+    async def async_set_dhw_power(self, index: int) -> None:
+        if index not in range(9):
+            raise ValueError("DHW power index must be between 0 and 8")
+        await self._async_set_dhw_value("change_pwrlst", index)
+
+    async def _async_set_dhw_value(self, endpoint: str, value: int | float) -> None:
+        try:
+            async with self._session.post(
+                f"{self._base_url}/{endpoint}",
+                data=f"[{value}]",
+                timeout=self._timeout,
+            ) as response:
+                response.raise_for_status()
+                await response.read()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise StoutPlusApiError(
+                f"Cannot set {endpoint}: {err}"
+            ) from err
+
     async def async_set_antilegionella(
         self, enabled: bool, temperature: int, weekday: int, hour: int
     ) -> None:

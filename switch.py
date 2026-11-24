@@ -10,6 +10,7 @@ from .entity import (
     StoutPlusEntityMixin,
     get_antilegionella_settings,
     antilegionella_available,
+    dhw_control_available,
 )
 
 
@@ -24,10 +25,60 @@ async def async_setup_entry(
     async_add_entities(
         [
             StoutPlusRelaySoundSwitch(coordinator, api, entry),
+            StoutPlusDhwSwitch(coordinator, api, entry),
             StoutPlusAntilegionellaSwitch(coordinator, api, entry),
         ]
     )
 
+
+class StoutPlusDhwSwitch(
+    StoutPlusEntityMixin, CoordinatorEntity, SwitchEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "DHW"
+    _attr_icon = "mdi:water-boiler"
+
+    def __init__(self, coordinator, api, entry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_dhw"
+        self._stout_suggested_object_id = "stout_plus_dhw"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and dhw_control_available(
+            self.coordinator.data.get("main", {})
+        )
+
+    @property
+    def is_on(self) -> bool | None:
+        value = self.coordinator.data.get("main", {}).get("settedDHWmode")
+        if value is None:
+            return None
+        try:
+            return int(value) == 1
+        except (TypeError, ValueError):
+            return None
+
+    async def _set_state(self, enabled: bool) -> None:
+        try:
+            await self._api.async_set_dhw_mode(enabled)
+        except (StoutPlusApiError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self._set_state(True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self._set_state(False)
 
 class StoutPlusAntilegionellaSwitch(
     StoutPlusEntityMixin, CoordinatorEntity, SwitchEntity

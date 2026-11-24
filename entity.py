@@ -35,3 +35,16 @@ def antilegionella_available(other: dict) -> bool:
         return int(other["exManagMode"]) == 0
     except (KeyError, TypeError, ValueError):
         return False
+
+def dhw_control_available(main: dict) -> bool:
+    try:
+        return int(main["exManagStatus"]) == 0
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def dhw_settings_available(main: dict) -> bool:
+    try:
+        return dhw_control_available(main) and int(main["settedDHWmode"]) == 1
+    except (KeyError, TypeError, ValueError):
+        return False

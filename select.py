@@ -15,6 +15,7 @@ from .entity import (
     StoutPlusEntityMixin,
     get_antilegionella_settings,
     antilegionella_available,
+    dhw_settings_available,
 )
 
 
@@ -28,6 +29,7 @@ async def async_setup_entry(
         [
             StoutPlusModeSelect(data["coordinator"], data["api"], entry),
             StoutPlusOutdoorTargetSelect(data["coordinator"], data["api"], entry),
+            StoutPlusDhwPowerSelect(data["coordinator"], data["api"], entry),
             StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, True),
             StoutPlusAlgorithmSelect(data["coordinator"], data["api"], entry, False),
             StoutPlusPumpLagSelect(data["coordinator"], data["api"], entry),
@@ -99,6 +101,53 @@ class StoutPlusModeSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEntity)
             self.coordinator.requested_mode = None
             self.coordinator.async_update_listeners()
 
+
+class StoutPlusDhwPowerSelect(
+    StoutPlusEntityMixin, CoordinatorEntity, SelectEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "DHW power"
+    _attr_icon = "mdi:lightning-bolt"
+    _attr_options = [f"{power} kW" for power in range(2, 19, 2)]
+
+    def __init__(self, coordinator, api, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = f"{entry.entry_id}_dhw_power"
+        self._stout_suggested_object_id = "stout_plus_dhw_power"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="STOUT PLUS",
+            manufacturer="STOUT",
+            model="SEB-2201-000018",
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and dhw_settings_available(
+            self.coordinator.data.get("main", {})
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        value = self.coordinator.data.get("main", {}).get("DHWLevel")
+        try:
+            index = int(value) - 1
+            return self._attr_options[index] if 0 <= index < len(self._attr_options) else None
+        except (TypeError, ValueError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in self._attr_options:
+            raise HomeAssistantError(f"Unsupported DHW power: {option}")
+
+        index = self._attr_options.index(option)
+        try:
+            await self._api.async_set_dhw_power(index)
+        except (StoutPlusApiError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+        await self.coordinator.async_request_refresh()
 
 class StoutPlusAlgorithmSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
