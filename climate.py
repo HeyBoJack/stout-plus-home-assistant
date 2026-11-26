@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import math
+
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
@@ -34,7 +37,7 @@ class StoutPlusClimate(StoutPlusEntityMixin, CoordinatorEntity, ClimateEntity):
     _attr_has_entity_name = True
     _attr_name = "Room thermostat"
     _attr_icon = "mdi:thermostat"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 0
     _attr_max_temp = 35
     _attr_target_temperature_step = 0.1
@@ -55,18 +58,20 @@ class StoutPlusClimate(StoutPlusEntityMixin, CoordinatorEntity, ClimateEntity):
         )
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         value = self.coordinator.data["main"].get("TempInRoom")
-        try:
-            return float(value) if value is not None else None
+	try:
+            result = float(value) if value is not None else None
+            return result if result is not None and math.isfinite(result) else None
         except (TypeError, ValueError):
             return None
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         value = self.coordinator.data["main"].get("setTempRoomMode")
         try:
-            return float(value) if value is not None else None
+            result = float(value) if value is not None else None
+            return result if result is not None and math.isfinite(result) else None
         except (TypeError, ValueError):
             return None
 
@@ -95,7 +100,12 @@ class StoutPlusClimate(StoutPlusEntityMixin, CoordinatorEntity, ClimateEntity):
         if temperature is None:
             return
 
-        if not 0 <= temperature <= 35:
+        try:
+            temperature = float(temperature)
+        except (TypeError, ValueError, OverflowError):
+            raise HomeAssistantError("Invalid room temperature")
+
+        if not math.isfinite(temperature) or not 0 <= temperature <= 35:
             raise HomeAssistantError(
                 "Room temperature must be between 0 and 35 °C"
             )
@@ -124,12 +134,13 @@ class StoutPlusClimate(StoutPlusEntityMixin, CoordinatorEntity, ClimateEntity):
                 ) from err
 
             for _ in range(20):
-                await self.coordinator.async_refresh_main_params()
+                if not await self.coordinator.async_refresh_main_params():
+                    await asyncio.sleep(1)
+                    continue
 
                 if self.hvac_mode == HVACMode.HEAT:
                     return
 
-                import asyncio
                 await asyncio.sleep(1)
 
             raise HomeAssistantError(

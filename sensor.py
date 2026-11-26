@@ -111,7 +111,7 @@ class StoutPlusModeSensor(StoutPlusEntityMixin, CoordinatorEntity, SensorEntity)
     def __init__(self, coordinator, entry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_operating_mode"
-        self._stout_suggested_object_id = "stout_plus_operating_mode"
+        self._stout_suggested_object_id = "stout_plus_operating_mode_sensor"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="STOUT PLUS",

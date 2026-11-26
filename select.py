@@ -86,7 +86,8 @@ class StoutPlusModeSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEntity)
 
             for _ in range(20):
                 await asyncio.sleep(1)
-                await self.coordinator.async_refresh_main_params()
+                if not await self.coordinator.async_refresh_main_params():
+                    continue
                 current_mode = self.coordinator.data["main"].get("setMode")
                 try:
                     if int(current_mode) == mode:
@@ -157,7 +158,7 @@ class StoutPlusAlgorithmSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEn
     def available(self) -> bool:
         try:
             alg = int(self.coordinator.data["other"]["Alg"])
-            return not bool(alg & 0x4)
+            return super().available and not bool(alg & 0x4)
         except (KeyError, TypeError, ValueError):
             return False
 
@@ -406,7 +407,7 @@ class StoutPlusPumpLagSelect(StoutPlusEntityMixin, CoordinatorEntity, SelectEnti
     def available(self) -> bool:
         try:
             pump_lag = int(self.coordinator.data["other"]["PumpLag"])
-            return bool(pump_lag & 0x80)
+            return super().available and bool(pump_lag & 0x80)
         except (KeyError, TypeError, ValueError):
             return False
 

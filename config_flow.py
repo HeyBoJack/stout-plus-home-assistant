@@ -7,7 +7,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import StoutPlusApi, StoutPlusApiError
-from .const import DEFAULT_HOST, DEFAULT_PORT, DOMAIN
+from .const import DEFAULT_PORT, DOMAIN
 
 
 class StoutPlusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -45,7 +45,7 @@ class StoutPlusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_HOST, default=DEFAULT_HOST): vol.All(
+                vol.Required(CONF_HOST): vol.All(
                     str, vol.Strip, vol.Length(min=1)
                 ),
                 vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(

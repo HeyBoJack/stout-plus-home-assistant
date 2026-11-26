@@ -43,16 +43,18 @@ class StoutPlusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "other": other,
         }
 
-    async def async_refresh_main_params(self) -> None:
+    async def async_refresh_main_params(self) -> bool:
         try:
             main = await self.api.async_get_main_params()
         except StoutPlusApiError as err:
             _LOGGER.warning("Fast mode refresh failed: %s", err)
-            return
+            return False
 
         if self.data is not None:
             self.data = {**self.data, "main": main}
             self.async_update_listeners()
+            return True
+        return False
 
     async def _async_fetch_data(
         self,
