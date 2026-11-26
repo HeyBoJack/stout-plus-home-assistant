@@ -1,7 +1,7 @@
 {
   "domain": "stout_plus",
-  "categories": ["climate.thermostats_heating"],
   "name": "STOUT PLUS",
+  "categories": ["climate.thermostats_heating"],
   "codeowners": ["@HeyBoJack"],
   "config_flow": true,
   "documentation": "https://github.com/HeyBoJack/stout-plus-home-assistant",
