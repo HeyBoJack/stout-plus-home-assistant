@@ -1,5 +1,6 @@
 {
   "domain": "stout_plus",
+  "categories": ["climate.thermostats_heating"],
   "name": "STOUT PLUS",
   "codeowners": ["@HeyBoJack"],
   "config_flow": true,

@@ -60,7 +60,7 @@ class StoutPlusClimate(StoutPlusEntityMixin, CoordinatorEntity, ClimateEntity):
     @property
     def native_current_temperature(self) -> float | None:
         value = self.coordinator.data["main"].get("TempInRoom")
-	try:
+        try:
             result = float(value) if value is not None else None
             return result if result is not None and math.isfinite(result) else None
         except (TypeError, ValueError):
